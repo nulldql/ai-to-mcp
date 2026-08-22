@@ -92,6 +92,55 @@ test("apiRequest attaches query parameters correctly", async () => {
   }
 });
 
+test("apiRequest sends an array query value as repeated keys, not a joined string", async () => {
+  const { server, url, requests } = await startRecordingServer();
+  try {
+    await withTempDir(async (dir) => {
+      const result = generateFromOpenApi(docWithBaseUrl(url), "test");
+      process.env.API_BASE_URL = url;
+      const client = await loadClientModule(dir, "client6.mjs", result.clientFileCode ?? "");
+      await client.apiRequest("GET", "/pets", { query: { tags: ["a", "b", "c"] } });
+      delete process.env.API_BASE_URL;
+    });
+    const receivedUrl = new URL(requests[0].url, "http://localhost");
+    assert.deepEqual(receivedUrl.searchParams.getAll("tags"), ["a", "b", "c"]);
+  } finally {
+    server.close();
+  }
+});
+
+test("apiRequest sends a form-encoded body when told to", async () => {
+  const { server, url } = await startRecordingServer();
+  const receivedBodies: string[] = [];
+  const receivedContentTypes: string[] = [];
+  server.removeAllListeners("request");
+  server.on("request", (req, res) => {
+    const chunks: Buffer[] = [];
+    req.on("data", (chunk: Buffer) => chunks.push(chunk));
+    req.on("end", () => {
+      receivedBodies.push(Buffer.concat(chunks).toString("utf8"));
+      receivedContentTypes.push(String(req.headers["content-type"] ?? ""));
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end("{}");
+    });
+  });
+  try {
+    await withTempDir(async (dir) => {
+      const result = generateFromOpenApi(docWithBaseUrl(url), "test");
+      process.env.API_BASE_URL = url;
+      const client = await loadClientModule(dir, "client7.mjs", result.clientFileCode ?? "");
+      await client.apiRequest("POST", "/pets", { body: { name: "fido", status: "available" }, encoding: "form" });
+      delete process.env.API_BASE_URL;
+    });
+    assert.equal(receivedContentTypes[0], "application/x-www-form-urlencoded");
+    const parsed = new URLSearchParams(receivedBodies[0]);
+    assert.equal(parsed.get("name"), "fido");
+    assert.equal(parsed.get("status"), "available");
+  } finally {
+    server.close();
+  }
+});
+
 test("apiRequest injects a bearer token from API_TOKEN", async () => {
   const { server, url } = await startRecordingServer();
   const receivedHeaders: string[] = [];

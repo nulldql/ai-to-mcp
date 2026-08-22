@@ -64,6 +64,73 @@ test("extractOperations picks up an application/json request body", () => {
   assert.equal(ops[0].requestBodyRequired, true);
 });
 
+test("extractOperations picks up an application/x-www-form-urlencoded request body", () => {
+  const doc: OpenApiDocument = {
+    paths: {
+      "/pets": {
+        post: {
+          operationId: "createPetForm",
+          requestBody: {
+            required: true,
+            content: {
+              "application/x-www-form-urlencoded": {
+                schema: { type: "object", properties: { name: { type: "string" } } },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+  const ops = extractOperations(doc);
+  assert.ok(ops[0].requestBodySchema);
+  assert.equal(ops[0].requestBodyEncoding, "form");
+  assert.equal(ops[0].unsupportedBodyContentType, undefined);
+});
+
+test("extractOperations flags a request body content type it can't turn into arguments", () => {
+  const doc: OpenApiDocument = {
+    paths: {
+      "/pets/{id}/image": {
+        post: {
+          operationId: "uploadPetImage",
+          requestBody: {
+            required: true,
+            content: {
+              "application/octet-stream": { schema: { type: "string" } },
+            },
+          },
+        },
+      },
+    },
+  };
+  const ops = extractOperations(doc);
+  assert.equal(ops[0].requestBodySchema, undefined);
+  assert.equal(ops[0].unsupportedBodyContentType, "application/octet-stream");
+});
+
+test("extractOperations prefers application/json over a form body when both are declared", () => {
+  const doc: OpenApiDocument = {
+    paths: {
+      "/pets": {
+        post: {
+          operationId: "createPetEither",
+          requestBody: {
+            content: {
+              "application/json": { schema: { type: "object", properties: { name: { type: "string" } } } },
+              "application/x-www-form-urlencoded": {
+                schema: { type: "object", properties: { name: { type: "string" } } },
+              },
+            },
+          },
+        },
+      },
+    },
+  };
+  const ops = extractOperations(doc);
+  assert.equal(ops[0].requestBodyEncoding, "json");
+});
+
 test("extractOperations falls back to method and path when operationId is missing", () => {
   const doc: OpenApiDocument = {
     paths: { "/status": { get: {} } },

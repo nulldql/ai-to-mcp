@@ -77,6 +77,10 @@ function operationToTool(op: Operation, doc: OpenApiDocument, taken: Set<string>
   if (queryParams.length > 0) requestOptions.push("query");
   if (headerParams.length > 0) requestOptions.push("headers");
   if (bodyIsObject || bodyIsOther) requestOptions.push("body");
+  if ((bodyIsObject || bodyIsOther) && op.requestBodyEncoding === "form") {
+    lines.push(`const encoding = "form" as const;`);
+    requestOptions.push("encoding");
+  }
 
   lines.push(
     `const data = await apiRequest(${JSON.stringify(op.method)}, resolvedPath${
@@ -103,29 +107,47 @@ type RequestOptions = {
   query?: Record<string, unknown>;
   headers?: Record<string, unknown>;
   body?: unknown;
+  encoding?: "json" | "form";
 };
+
+function encodeForm(body: unknown): string {
+  const params = new URLSearchParams();
+  if (body && typeof body === "object") {
+    for (const [key, value] of Object.entries(body as Record<string, unknown>)) {
+      if (value !== undefined && value !== null) params.append(key, String(value));
+    }
+  }
+  return params.toString();
+}
 
 export async function apiRequest(method: string, path: string, options: RequestOptions = {}) {
   const url = new URL(BASE_URL.replace(/\\/$/, "") + path);
 
   if (options.query) {
     for (const [key, value] of Object.entries(options.query)) {
-      if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
+      if (value === undefined || value === null) continue;
+      if (Array.isArray(value)) {
+        for (const item of value) url.searchParams.append(key, String(item));
+      } else {
+        url.searchParams.set(key, String(value));
+      }
     }
   }
 
-  const headers: Record<string, string> = { "content-type": "application/json" };
+  const isForm = options.encoding === "form";
+  const headers: Record<string, string> = {
+    "content-type": isForm ? "application/x-www-form-urlencoded" : "application/json",
+  };
   if (options.headers) {
     for (const [key, value] of Object.entries(options.headers)) {
       if (value !== undefined && value !== null) headers[key] = String(value);
     }
   }
 ${authInjectionCode(auth)}
-  const response = await fetch(url, {
-    method,
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
+  const body =
+    options.body === undefined ? undefined : isForm ? encodeForm(options.body) : JSON.stringify(options.body);
+
+  const response = await fetch(url, { method, headers, body });
 
   if (!response.ok) {
     const text = await response.text();
@@ -180,6 +202,14 @@ export function generateFromOpenApi(doc: OpenApiDocument, serverName: string, sp
   const taken = new Set<string>();
 
   const tools = operations.map((op) => operationToTool(op, doc, taken));
+
+  for (const op of operations) {
+    if (op.unsupportedBodyContentType) {
+      warnings.push(
+        `"${op.operationId}" has a request body of type "${op.unsupportedBodyContentType}", which isn't supported yet. The generated tool won't send a body for it.`,
+      );
+    }
+  }
 
   if (operations.length === 0) {
     warnings.push("No operations were found in this document.");

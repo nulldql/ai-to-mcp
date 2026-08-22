@@ -19,6 +19,8 @@ export type Operation = {
   parameters: OperationParam[];
   requestBodySchema?: JsonSchema;
   requestBodyRequired: boolean;
+  requestBodyEncoding?: "json" | "form";
+  unsupportedBodyContentType?: string;
 };
 
 type RawParam = {
@@ -67,6 +69,9 @@ export function extractOperations(doc: OpenApiDocument): Operation[] {
         | { required?: boolean; content?: Record<string, { schema?: JsonSchema }> }
         | undefined;
       const jsonBody = requestBody?.content?.["application/json"];
+      const formBody = requestBody?.content?.["application/x-www-form-urlencoded"];
+      const usableBody = jsonBody ?? formBody;
+      const otherContentType = requestBody?.content ? Object.keys(requestBody.content)[0] : undefined;
 
       const operationId =
         typeof rawOp.operationId === "string" && rawOp.operationId.trim().length > 0
@@ -82,8 +87,10 @@ export function extractOperations(doc: OpenApiDocument): Operation[] {
           (typeof rawOp.description === "string" && rawOp.description) ||
           `${method.toUpperCase()} ${path}`,
         parameters,
-        requestBodySchema: jsonBody?.schema,
+        requestBodySchema: usableBody?.schema,
         requestBodyRequired: Boolean(requestBody?.required),
+        requestBodyEncoding: usableBody ? (jsonBody ? "json" : "form") : undefined,
+        unsupportedBodyContentType: !usableBody ? otherContentType : undefined,
       });
     }
   }

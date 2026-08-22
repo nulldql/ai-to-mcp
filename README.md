@@ -1,6 +1,6 @@
 # ai-to-mcp
 
-turns an openapi spec or a file of typescript functions into a real, working mcp server. no manual wiring, no reading through docs to figure out the sdk's api shape, just point it at something and get a server back.
+Turns an OpenAPI spec or a file of TypeScript functions into an MCP server. No manual wiring, no reading through docs to figure out the SDK's API shape. Point it at something and get a server back.
 
 ```bash
 ai-to-mcp https://myapi.com/openapi.json
@@ -10,15 +10,15 @@ ai-to-mcp https://myapi.com/openapi.json
 ai-to-mcp ./tools/weather.ts
 ```
 
-either one generates a full project: package.json, tsconfig, a readme, and one file per tool, ready to install and build.
+Either one generates a full project: package.json, tsconfig, a README, and one file per tool, ready to install and build.
 
-## why this exists
+## Why this exists
 
-mcp servers are usually written by hand, one tool at a time, each with its own zod schema and its own handler. if you already have an openapi spec or a file of plain functions, most of that is just a mechanical translation. this does the translation part so you can spend time on the parts that actually need a person.
+MCP servers are usually written by hand, one tool at a time, each with its own Zod schema and its own handler. If you already have an OpenAPI spec or a file of plain functions, most of that is just a mechanical translation. This does the translation part so you can spend time on the parts that actually need a person.
 
-## install
+## Install
 
-this hasn't been published to npm yet, so for now clone it and run it directly:
+This hasn't been published to npm yet, so for now clone it and run it directly:
 
 ```bash
 git clone https://github.com/TheCEO3-rgb/ai-to-mcp.git
@@ -28,9 +28,9 @@ npm run build
 node dist/cli.js <input>
 ```
 
-once it's published, the plan is for `npx ai-to-mcp <input>` to work the same way without cloning anything.
+Once it's published, the plan is for `npx ai-to-mcp <input>` to work the same way without cloning anything.
 
-## usage
+## Usage
 
 ```bash
 ai-to-mcp https://petstore3.swagger.io/api/v3/openapi.json
@@ -44,7 +44,7 @@ ai-to-mcp ./openapi.yaml --out my-api-mcp
 ai-to-mcp ./tools/weather.ts --name weather-mcp
 ```
 
-after generating, the server still needs its own install and build before it can run:
+After generating, the server still needs its own install and build before it can run:
 
 ```bash
 cd weather-mcp
@@ -53,9 +53,7 @@ npm run build
 node dist/index.js
 ```
 
-there's a real example you can try right now in `test-fixtures/weather.ts`.
-
-### options
+### Options
 
 ```
 --out <dir>     output directory for the generated server (default: derived from the input)
@@ -64,17 +62,21 @@ there's a real example you can try right now in `test-fixtures/weather.ts`.
 --version       print the installed version
 ```
 
-## how it decides what to generate
+## How it decides what to generate
 
-**a url ending in `.json`, `.yaml`, or `.yml`, or a local file with one of those extensions**, gets treated as an openapi spec. every operation becomes a tool. path, query, and header parameters become typed arguments. a json request body gets flattened into the tool's arguments too, so calling the tool doesn't mean nesting everything under a `body` key. `$ref` pointers get resolved against the rest of the document, including nested objects and arrays.
+A URL ending in `.json`, `.yaml`, or `.yml`, or a local file with one of those extensions, gets treated as an OpenAPI spec. Every operation becomes a tool. Path, query, and header parameters become typed arguments. A JSON request body gets flattened into the tool's arguments too, so calling the tool doesn't mean nesting everything under a `body` key. `$ref` pointers get resolved against the rest of the document, including nested objects and arrays.
 
-if the spec declares an api key or bearer auth scheme, that gets wired into the generated client automatically, reading the actual key from an environment variable at runtime. oauth2 isn't supported yet, since it needs a real token exchange flow rather than just forwarding a static value.
+If the spec declares an API key or bearer auth scheme, that gets wired into the generated client automatically, reading the actual key from an environment variable at runtime. OAuth2 isn't supported yet, since it needs a token exchange flow rather than just forwarding a static value.
 
-**a local `.ts` file** gets scanned for exported functions using the real typescript compiler, not just pattern matching on the text. each exported function becomes a tool, using its actual parameter types to build the schema and its jsdoc comment (the first line of it) as the tool's description. the original file gets copied into the generated project and the tool just calls the real function directly, no http involved.
+A local `.ts` file gets scanned for exported functions using the TypeScript compiler, not just pattern matching on the text. Each exported function becomes a tool, using its actual parameter types to build the schema and its JSDoc comment (the first line of it) as the tool's description. The original file gets copied into the generated project and the tool just calls the function directly, no HTTP involved.
 
-destructured parameters (`function foo({ a, b }: Args)`) aren't supported yet. give the function plain named parameters instead.
+Destructured parameters (`function foo({ a, b }: Args)`) aren't supported yet. Give the function plain named parameters instead.
 
-## what gets generated
+### Known limitations
+
+Request bodies that aren't `application/json` (file uploads, form-urlencoded fields) aren't turned into tool arguments. If an operation only has a body like that, the tool still gets created but won't send the body, and a warning gets printed telling you which operation to fix by hand.
+
+## What gets generated
 
 ```
 my-server/
@@ -91,9 +93,9 @@ my-server/
       original.ts       (typescript mode only, your file copied in)
 ```
 
-every tool file is plain, readable typescript. nothing about it is a black box, you can open any generated file and see exactly what it does.
+Every tool file is plain TypeScript. Open any generated file and you can see exactly what it does.
 
-## development
+## Development
 
 ```bash
 git clone https://github.com/TheCEO3-rgb/ai-to-mcp.git
@@ -102,10 +104,10 @@ npm install
 npm test
 ```
 
-`npm test` builds the project and runs the full suite with node's built-in test runner. most of it is unit tests for schema conversion, operation extraction, and function extraction, plus a set of tests that actually run the generated client code against a real local http server to check the request it sends is correct, not just that it compiles.
+`npm test` builds the project and runs the full suite with Node's built-in test runner: unit tests for schema conversion, operation extraction, and function extraction, plus a set that runs the generated client code against a local HTTP server to check the request it sends, not just that it compiles.
 
-this was tested against a real public api (the swagger petstore demo) during development, not just fixtures, and caught two real bugs along the way: a relative server url in the spec not getting resolved against the spec's own address, and a url-joining bug that silently dropped a base url's path prefix when the request path started with a slash. both are now covered by tests so they can't come back unnoticed.
+It was also tested against the Swagger Petstore demo during development, which caught a few bugs a fixture-only test suite wouldn't have: a relative server URL in the spec not getting resolved against the spec's own address, a URL-joining bug that silently dropped a base URL's path prefix, and array query parameters getting joined into one comma-separated string instead of sent as separate values. All of them are covered by tests now.
 
-## license
+## License
 
-mit
+MIT

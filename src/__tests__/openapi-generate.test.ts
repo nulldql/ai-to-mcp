@@ -99,3 +99,44 @@ test("generateFromOpenApi warns about an unsupported oauth2 security scheme", ()
   const result = generateFromOpenApi(doc, "my-server");
   assert.ok(result.warnings.some((w) => w.toLowerCase().includes("oauth")));
 });
+
+test("generateFromOpenApi warns when an operation's request body can't be turned into arguments", () => {
+  const doc = basicDoc({
+    paths: {
+      "/pets/image": {
+        post: {
+          operationId: "uploadPetImage",
+          requestBody: {
+            required: true,
+            content: { "application/octet-stream": { schema: { type: "string" } } },
+          },
+        },
+      },
+    },
+  });
+  const result = generateFromOpenApi(doc, "my-server");
+  assert.deepEqual(result.tools[0].zodShape, {});
+  assert.ok(result.warnings.some((w) => w.includes("uploadPetImage") && w.includes("application/octet-stream")));
+});
+
+test("generateFromOpenApi flattens a form-urlencoded body into arguments and marks form encoding", () => {
+  const doc = basicDoc({
+    paths: {
+      "/pets": {
+        post: {
+          operationId: "updatePetForm",
+          requestBody: {
+            content: {
+              "application/x-www-form-urlencoded": {
+                schema: { type: "object", properties: { name: { type: "string" } } },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
+  const result = generateFromOpenApi(doc, "my-server");
+  assert.deepEqual(result.tools[0].zodShape, { name: "z.string().optional()" });
+  assert.match(result.tools[0].handlerBody, /encoding = "form"/);
+});
