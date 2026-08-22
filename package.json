@@ -1,0 +1,36 @@
+{
+  "name": "ai-to-mcp",
+  "version": "0.1.0",
+  "description": "Turns an OpenAPI spec or a file of TypeScript functions into a working MCP server.",
+  "type": "module",
+  "bin": {
+    "ai-to-mcp": "./dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/cli.js",
+    "test": "npm run build && node --test dist/__tests__/*.test.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "openapi",
+    "codegen",
+    "cli",
+    "ai-tools"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "typescript": "^5.7.3",
+    "yaml": "^2.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5"
+  }
+}
