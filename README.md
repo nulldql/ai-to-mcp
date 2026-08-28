@@ -21,7 +21,7 @@ MCP servers are usually written by hand, one tool at a time, each with its own Z
 This hasn't been published to npm yet, so for now clone it and run it directly:
 
 ```bash
-git clone https://github.com/TheCEO3-rgb/ai-to-mcp.git
+git clone https://github.com/nulldql/ai-to-mcp.git
 cd ai-to-mcp
 npm install
 npm run build
@@ -74,7 +74,7 @@ Destructured parameters (`function foo({ a, b }: Args)`) aren't supported yet. G
 
 ### Known limitations
 
-Request bodies that aren't `application/json` (file uploads, form-urlencoded fields) aren't turned into tool arguments. If an operation only has a body like that, the tool still gets created but won't send the body, and a warning gets printed telling you which operation to fix by hand.
+JSON and form-urlencoded request bodies both get turned into tool arguments. Anything else (file uploads, raw binary bodies) doesn't. If an operation only has a body like that, the tool still gets created but won't send the body, and a warning gets printed telling you which operation to fix by hand.
 
 ## What gets generated
 
@@ -98,7 +98,7 @@ Every tool file is plain TypeScript. Open any generated file and you can see exa
 ## Development
 
 ```bash
-git clone https://github.com/TheCEO3-rgb/ai-to-mcp.git
+git clone https://github.com/nulldql/ai-to-mcp.git
 cd ai-to-mcp
 npm install
 npm test
